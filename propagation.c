@@ -9,12 +9,11 @@ int neighbors[6][6] = {{0, 1, 1, 0, 0, 0}, {1, 0, 1, 1, 1, 0}, {1, 1, 0, 0, 0, 1
 int count_neighbors(int rank) {
 	int i, count = 0;
 	
-	for (i = 0; i < np; i++) {
-		if (neighbors[rank][i])
+	for (i = 0; i < np; i++)
+		if (neighbors[rank][i] == 1)
 			count++;
-		
-		return count;
-	}
+			
+	return count;
 }
 
 
@@ -27,38 +26,43 @@ int main(int argc, char** argv) {
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-    
     n_neighbors = count_neighbors(my_rank);
     
     if (my_rank == source) {
+    	// send data to all of my_rank's neighbors
     	for (i = 0; i < np; i++) {
-    		if (neighbors[my_rank][i]) {
-    			printf("Enviando mensagem para %d\n.", i);
+    		if (neighbors[my_rank][i] == 1) {
+    			printf("Processo %d envia dado para %d.\n", my_rank, i);
     			MPI_Send(data, strlen(data)+1, MPI_CHAR, i, tag, MPI_COMM_WORLD);
     		}
     	}
     	
+    	// receive data from all of my_rank's neighbors
     	for (i = 0; i < n_neighbors; i++) {
     		MPI_Recv(data, 100, MPI_CHAR, MPI_ANY_SOURCE, tag, MPI_COMM_WORLD, &status);
-    		printf("Recebendo mensagem de %d\n.", status.MPI_SOURCE);
+    		printf("Processo %d recebe dado de %d.\n", my_rank, status.MPI_SOURCE);
     	}
     }
     
     else {
+    	// receive data from any neighbor process
     	MPI_Recv(data, 100, MPI_CHAR, MPI_ANY_SOURCE, tag, MPI_COMM_WORLD, &status);
+    	printf("Processo %d recebe dado de %d.\n", my_rank, status.MPI_SOURCE);
     	
+    	// send data to all of my_rank's neighbors
     	for (i = 0; i < np; i++)
-    		if (neighbors[my_rank][i])
+    		if (neighbors[my_rank][i] == 1) {
+    			printf("Processo %d envia dado para %d.\n", my_rank, i);
     			MPI_Send(data, strlen(data)+1, MPI_CHAR, i, tag, MPI_COMM_WORLD);
+    		}
 
-
-    	for (i = 0; i < n_neighbors-1; i++)
+		// receive from all except 1 of my_rank's neighbors
+    	for (i = 0; i < n_neighbors-1; i++) {
     		MPI_Recv(data, 100, MPI_CHAR, MPI_ANY_SOURCE, tag, MPI_COMM_WORLD, &status);
+    		printf("Processo %d recebe dado de %d.\n", my_rank, status.MPI_SOURCE);
+    	}
     }
     
     
-    
-    
-
     MPI_Finalize();
 }
